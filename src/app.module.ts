@@ -4,7 +4,6 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { SupabaseModule } from './supabase/supabase.module';
-import { DatabaseModule } from './database/database.module';
 
 @Module({
   imports: [
@@ -13,7 +12,6 @@ import { DatabaseModule } from './database/database.module';
     }),
     AuthModule,
     SupabaseModule,
-    DatabaseModule,
   ],
   controllers: [AppController],
   providers: [AppService],
