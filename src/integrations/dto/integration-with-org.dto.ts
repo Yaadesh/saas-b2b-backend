@@ -44,5 +44,5 @@ export class IntegrationWithOrgDto {
     description: 'Organization integration status (null if not configured)',
     example: 1,
   })
-  org_integration_status?: number;
+  org_integration_status?: number | null;
 }
