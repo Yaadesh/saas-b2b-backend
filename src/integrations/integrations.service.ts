@@ -35,9 +35,10 @@ export class IntegrationsService {
 
   async findIntegrationsByOrgId(
     orgId: number,
+    integrationType?: number,
   ): Promise<GetIntegrationsResponseDto> {
     const integrations =
-      await this.integrationRepository.findIntegrationsByOrgId(orgId);
+      await this.integrationRepository.findIntegrationsByOrgId(orgId, integrationType);
 
     return {
       integrations,
@@ -189,43 +190,18 @@ export class IntegrationsService {
       );
     }
 
-    const integrationService =
-      this.integrationFactoryService.getIntegrationService(integration.name);
-
     const redirectUri = `${this.configService.get<string>('APP_BASE_URL')}/integrations/callback`;
 
     try {
-      const tokenData = await integrationService.exchangeCodeForToken(
-        callbackData.code,
-        callbackData.state,
-        orgId,
-        redirectUri,
-      );
-
-      await this.orgIntegrationKeysRepository.storeTokens(
+      // Use factory service to handle the entire callback flow
+      await this.integrationFactoryService.handleCallback(
+        integration.name,
         orgId,
         callbackData.integration_id,
-        tokenData,
+        callbackData.code,
+        callbackData.state,
+        redirectUri,
       );
-
-      const existingMapping =
-        await this.integrationRepository.findOrgIntegrationMapping(
-          orgId,
-          callbackData.integration_id,
-        );
-
-      if (existingMapping) {
-        existingMapping.status = 1;
-        await this.integrationRepository.saveOrgIntegrationMapping(
-          existingMapping,
-        );
-      } else {
-        await this.integrationRepository.saveOrgIntegrationMapping({
-          org_id: orgId,
-          integration_id: callbackData.integration_id,
-          status: 1,
-        });
-      }
 
       return {
         message: 'Integration connected successfully',

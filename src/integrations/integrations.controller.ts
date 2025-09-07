@@ -9,6 +9,8 @@ import {
   Body,
   Param,
   ParseIntPipe,
+  Query,
+  Optional,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -32,6 +34,7 @@ import {
   CallbackRequestDto,
   CallbackResponseDto,
 } from './dto/connect-integration.dto';
+import { IntegrationFactoryService } from './services/integration-factory.service';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -48,13 +51,16 @@ interface AuthenticatedRequest extends Request {
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth('JWT-auth')
 export class IntegrationsController {
-  constructor(private readonly integrationsService: IntegrationsService) {}
+  constructor(
+    private readonly integrationsService: IntegrationsService,
+    private readonly integrationFactoryService: IntegrationFactoryService,
+  ) {}
 
   @Get()
   @ApiOperation({
     summary: 'Get integrations for organization',
     description:
-      "Retrieves all available integrations and organization-specific integration status. Requires authentication and automatically filters by user's organization.",
+      "Retrieves all available integrations and organization-specific integration status. Requires authentication and automatically filters by user's organization. Optional integration_type query parameter to filter by type (1=functional, 2=app).",
   })
   @ApiResponse({
     status: 200,
@@ -67,6 +73,7 @@ export class IntegrationsController {
   })
   async getIntegrations(
     @Request() req: AuthenticatedRequest,
+    @Query('integration_type') integrationType?: number,
   ): Promise<GetIntegrationsResponseDto> {
     const orgId = req.user.orgId;
 
@@ -74,7 +81,7 @@ export class IntegrationsController {
       throw new UnauthorizedException('Organization ID not found for user');
     }
 
-    return this.integrationsService.findIntegrationsByOrgId(orgId);
+    return this.integrationsService.findIntegrationsByOrgId(orgId, integrationType);
   }
 
   @Get(':integration_id')
@@ -155,13 +162,13 @@ export class IntegrationsController {
 
   @Post('connect')
   @ApiOperation({
-    summary: 'Initiate OAuth connection for third-party integration',
+    summary: 'Connect to third-party integration',
     description:
-      'Starts the OAuth flow for connecting GitHub, Slack, or Confluence. Returns authorization URL to redirect user to.',
+      'Connects to integrations via OAuth flow or direct credential storage. For OAuth integrations (GitHub, Slack, Confluence), returns authorization URL. For credential-based integrations (Jamf), stores encrypted credentials directly.',
   })
   @ApiResponse({
     status: 200,
-    description: 'Successfully generated authorization URL',
+    description: 'Successfully connected or generated authorization URL',
     type: ConnectIntegrationResponseDto,
   })
   @ApiUnauthorizedResponse({
@@ -187,10 +194,52 @@ export class IntegrationsController {
       throw new BadRequestException('Integration ID is required');
     }
 
+    // Get integration details
+    const integration = await this.integrationsService.findIntegrationByOrgAndId(
+      orgId,
+      body.integration_id,
+    );
+
+    if (!integration) {
+      throw new BadRequestException(`Integration with ID ${body.integration_id} not found`);
+    }
+
+    const integrationName = integration.integration.name.toLowerCase();
+
+    // Handle credential-based connections (Jamf, etc.)
+    if (body.connection_type === 'credentials' && body.credentials) {
+      return this.handleCredentialConnection(orgId, body.integration_id, integrationName, body.credentials);
+    }
+
+    // Handle OAuth connections (GitHub, Slack, Confluence) - default behavior
     return this.integrationsService.connectIntegration(
       orgId,
       body.integration_id,
     );
+  }
+
+  /**
+   * Handle direct credential storage using factory pattern
+   */
+  private async handleCredentialConnection(
+    orgId: number,
+    integrationId: number,
+    integrationName: string,
+    credentials: Record<string, any>,
+  ): Promise<ConnectIntegrationResponseDto> {
+    try {
+      return await this.integrationFactoryService.connectWithCredentials(
+        integrationName,
+        orgId,
+        integrationId,
+        credentials,
+      );
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || 'Connection failed',
+      };
+    }
   }
 
   @Post('callback')

@@ -6,6 +6,9 @@ import {
   TokenData,
 } from './base-integration.interface';
 import { StateUtil } from '../utils/state.util';
+import { EncryptionUtil } from '../utils/encryption.util';
+import { OrgIntegrationKeysRepository } from '../repositories/org-integration-keys.repository';
+import { IntegrationRepository } from '../repositories/integration.repository';
 
 @Injectable()
 export class SlackService implements BaseIntegrationService {
@@ -17,6 +20,8 @@ export class SlackService implements BaseIntegrationService {
   constructor(
     private readonly configService: ConfigService,
     private readonly stateUtil: StateUtil,
+    private readonly orgIntegrationKeysRepository: OrgIntegrationKeysRepository,
+    private readonly integrationRepository: IntegrationRepository,
   ) {
     this.clientId = this.configService.get<string>('SLACK_CLIENT_ID') || '';
     this.clientSecret =
@@ -139,6 +144,112 @@ export class SlackService implements BaseIntegrationService {
       return data.ok === true;
     } catch (error) {
       return false;
+    }
+  }
+
+  /**
+   * Store Slack App credentials with encryption
+   */
+  async storeCredentials(
+    orgId: number,
+    integrationId: number,
+    credentials: { clientId: string; clientSecret: string },
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      // Encrypt sensitive data
+      const encryptedData = EncryptionUtil.encryptObject({
+        clientId: credentials.clientId,
+        clientSecret: credentials.clientSecret,
+        connectedAt: new Date().toISOString(),
+      }, ['clientSecret'], this.configService);
+
+      // Store encrypted credentials
+      await this.orgIntegrationKeysRepository.storeKeys(
+        orgId,
+        integrationId,
+        encryptedData,
+      );
+
+      // Update integration mapping status
+      await this.updateIntegrationStatus(orgId, integrationId, 1);
+
+      return {
+        success: true,
+        message: 'Successfully stored Slack credentials',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || 'Failed to store Slack credentials',
+      };
+    }
+  }
+
+  /**
+   * Store OAuth tokens with encryption
+   */
+  async storeTokens(
+    orgId: number,
+    integrationId: number,
+    tokenData: TokenData,
+  ): Promise<void> {
+    // Encrypt sensitive token data
+    const encryptedTokenData = EncryptionUtil.encryptObject(
+      tokenData,
+      ['access_token', 'refresh_token'],
+      this.configService,
+    );
+
+    await this.orgIntegrationKeysRepository.storeTokens(
+      orgId,
+      integrationId,
+      encryptedTokenData,
+    );
+
+    // Update integration mapping status
+    await this.updateIntegrationStatus(orgId, integrationId, 1);
+  }
+
+  /**
+   * Get decrypted credentials
+   */
+  async getCredentials(orgId: number, integrationId: number): Promise<any | null> {
+    const storedKeys = await this.orgIntegrationKeysRepository.findByOrgAndIntegration(
+      orgId,
+      integrationId,
+      1, // enabled
+    );
+
+    if (!storedKeys || !storedKeys.data) {
+      return null;
+    }
+
+    // Decrypt sensitive fields
+    return EncryptionUtil.decryptObject(
+      storedKeys.data,
+      ['clientSecret', 'access_token', 'refresh_token'],
+      this.configService,
+    );
+  }
+
+  /**
+   * Update integration mapping status
+   */
+  private async updateIntegrationStatus(orgId: number, integrationId: number, status: number): Promise<void> {
+    const existingMapping = await this.integrationRepository.findOrgIntegrationMapping(
+      orgId,
+      integrationId,
+    );
+
+    if (existingMapping) {
+      existingMapping.status = status;
+      await this.integrationRepository.saveOrgIntegrationMapping(existingMapping);
+    } else {
+      await this.integrationRepository.saveOrgIntegrationMapping({
+        org_id: orgId,
+        integration_id: integrationId,
+        status,
+      });
     }
   }
 }

@@ -12,6 +12,12 @@ export interface AuthorizationData {
   state: string;
 }
 
+export interface ConnectResponse {
+  success: boolean;
+  message: string;
+  serverInfo?: any;
+}
+
 export interface BaseIntegrationService {
   /**
    * Generate authorization URL for OAuth flow
@@ -31,6 +37,29 @@ export interface BaseIntegrationService {
     orgId: number,
     redirectUri: string,
   ): Promise<TokenData>;
+
+  /**
+   * Store credentials directly (for non-OAuth integrations)
+   */
+  storeCredentials?(
+    orgId: number,
+    integrationId: number,
+    credentials: Record<string, any>,
+  ): Promise<ConnectResponse>;
+
+  /**
+   * Store OAuth tokens with encryption
+   */
+  storeTokens(
+    orgId: number,
+    integrationId: number,
+    tokenData: TokenData,
+  ): Promise<void>;
+
+  /**
+   * Get decrypted credentials
+   */
+  getCredentials(orgId: number, integrationId: number): Promise<any | null>;
 
   /**
    * Refresh access token using refresh token

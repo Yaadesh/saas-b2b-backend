@@ -72,4 +72,28 @@ export class OrgIntegrationKeysRepository {
     const key = await this.findByOrgAndIntegration(orgId, integrationId, 1);
     return key?.data || null;
   }
+
+  async storeKeys(
+    orgId: number,
+    integrationId: number,
+    keyData: any,
+  ): Promise<OrgIntegrationKeys> {
+    const existingKey = await this.findByOrgAndIntegration(
+      orgId,
+      integrationId,
+      1,
+    );
+
+    if (existingKey) {
+      existingKey.data = keyData;
+      return this.save(existingKey);
+    } else {
+      return this.save({
+        org_id: orgId,
+        integration_id: integrationId,
+        data: keyData,
+        is_enabled: 1,
+      });
+    }
+  }
 }

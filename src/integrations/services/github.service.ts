@@ -6,6 +6,9 @@ import {
   TokenData,
 } from './base-integration.interface';
 import { StateUtil } from '../utils/state.util';
+import { EncryptionUtil } from '../utils/encryption.util';
+import { OrgIntegrationKeysRepository } from '../repositories/org-integration-keys.repository';
+import { IntegrationRepository } from '../repositories/integration.repository';
 
 @Injectable()
 export class GitHubService implements BaseIntegrationService {
@@ -17,6 +20,8 @@ export class GitHubService implements BaseIntegrationService {
   constructor(
     private readonly configService: ConfigService,
     private readonly stateUtil: StateUtil,
+    private readonly orgIntegrationKeysRepository: OrgIntegrationKeysRepository,
+    private readonly integrationRepository: IntegrationRepository,
   ) {
     this.appId = this.configService.get<string>('GITHUB_APP_ID') || '';
     this.clientId = this.configService.get<string>('GITHUB_CLIENT_ID') || '';
@@ -111,5 +116,135 @@ export class GitHubService implements BaseIntegrationService {
     };
 
     return sign(payload, privateKey, { algorithm: 'RS256' });
+  }
+
+  /**
+   * Store GitHub App credentials with encryption
+   */
+  async storeCredentials(
+    orgId: number,
+    integrationId: number,
+    credentials: { appId: string; clientId: string; privateKey: string },
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      // Validate credentials first
+      await this.testCredentials(credentials.appId, credentials.privateKey);
+
+      // Encrypt sensitive data
+      const encryptedData = EncryptionUtil.encryptObject({
+        appId: credentials.appId,
+        clientId: credentials.clientId,
+        privateKey: credentials.privateKey,
+        connectedAt: new Date().toISOString(),
+      }, ['privateKey'], this.configService);
+
+      // Store encrypted credentials
+      await this.orgIntegrationKeysRepository.storeKeys(
+        orgId,
+        integrationId,
+        encryptedData,
+      );
+
+      // Update integration mapping status
+      await this.updateIntegrationStatus(orgId, integrationId, 1);
+
+      return {
+        success: true,
+        message: 'Successfully connected to GitHub App',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || 'Failed to store GitHub credentials',
+      };
+    }
+  }
+
+  /**
+   * Store OAuth tokens with encryption
+   */
+  async storeTokens(
+    orgId: number,
+    integrationId: number,
+    tokenData: TokenData,
+  ): Promise<void> {
+    // Encrypt sensitive token data
+    const encryptedTokenData = EncryptionUtil.encryptObject(
+      tokenData,
+      ['access_token', 'refresh_token'],
+      this.configService,
+    );
+
+    await this.orgIntegrationKeysRepository.storeTokens(
+      orgId,
+      integrationId,
+      encryptedTokenData,
+    );
+
+    // Update integration mapping status
+    await this.updateIntegrationStatus(orgId, integrationId, 1);
+  }
+
+  /**
+   * Get decrypted credentials
+   */
+  async getCredentials(orgId: number, integrationId: number): Promise<any | null> {
+    const storedKeys = await this.orgIntegrationKeysRepository.findByOrgAndIntegration(
+      orgId,
+      integrationId,
+      1, // enabled
+    );
+
+    if (!storedKeys || !storedKeys.data) {
+      return null;
+    }
+
+    // Decrypt sensitive fields
+    return EncryptionUtil.decryptObject(
+      storedKeys.data,
+      ['privateKey', 'access_token', 'refresh_token'],
+      this.configService,
+    );
+  }
+
+  /**
+   * Test GitHub App credentials
+   */
+  private async testCredentials(appId: string, privateKey: string): Promise<void> {
+    try {
+      const { sign } = await import('jsonwebtoken');
+      const cleanPrivateKey = privateKey.replace(/\\n/g, '\n');
+      
+      const payload = {
+        iat: Math.floor(Date.now() / 1000) - 60,
+        exp: Math.floor(Date.now() / 1000) + 600,
+        iss: appId,
+      };
+
+      sign(payload, cleanPrivateKey, { algorithm: 'RS256' });
+    } catch (error) {
+      throw new Error(`Invalid GitHub App credentials: ${error.message}`);
+    }
+  }
+
+  /**
+   * Update integration mapping status
+   */
+  private async updateIntegrationStatus(orgId: number, integrationId: number, status: number): Promise<void> {
+    const existingMapping = await this.integrationRepository.findOrgIntegrationMapping(
+      orgId,
+      integrationId,
+    );
+
+    if (existingMapping) {
+      existingMapping.status = status;
+      await this.integrationRepository.saveOrgIntegrationMapping(existingMapping);
+    } else {
+      await this.integrationRepository.saveOrgIntegrationMapping({
+        org_id: orgId,
+        integration_id: integrationId,
+        status,
+      });
+    }
   }
 }

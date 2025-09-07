@@ -4,7 +4,10 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
+import { IntegrationType } from './integration-type.entity';
 
 @Entity('integrations')
 export class Integration {
@@ -30,4 +33,11 @@ export class Integration {
     extra?: string;
     [key: string]: any;
   };
+
+  @Column({ type: 'int', nullable: false })
+  integration_type: number;
+
+  @ManyToOne(() => IntegrationType)
+  @JoinColumn({ name: 'integration_type' })
+  integrationType: IntegrationType;
 }

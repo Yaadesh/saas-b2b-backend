@@ -10,8 +10,11 @@ import { IntegrationFactoryService } from './services/integration-factory.servic
 import { GitHubService } from './services/github.service';
 import { SlackService } from './services/slack.service';
 import { ConfluenceService } from './services/confluence.service';
+import { JamfService } from './services/jamf.service';
+import { SimpleMDMService } from './services/simplemdm.service';
 import { StateUtil } from './utils/state.util';
 import { Integration } from './entities/integration.entity';
+import { IntegrationType } from './entities/integration-type.entity';
 import { OrgIntegrationKeys } from './entities/org-integration-keys.entity';
 import { OrgIntegrationMapping } from './entities/org-integration.entity';
 
@@ -19,6 +22,7 @@ import { OrgIntegrationMapping } from './entities/org-integration.entity';
   imports: [
     TypeOrmModule.forFeature([
       Integration,
+      IntegrationType,
       OrgIntegrationKeys,
       OrgIntegrationMapping,
     ]),
@@ -34,8 +38,10 @@ import { OrgIntegrationMapping } from './entities/org-integration.entity';
     GitHubService,
     SlackService,
     ConfluenceService,
+    JamfService,
+    SimpleMDMService,
     StateUtil,
   ],
-  exports: [IntegrationsService],
+  exports: [IntegrationsService, ConfluenceService, OrgIntegrationKeysRepository, IntegrationFactoryService],
 })
 export class IntegrationsModule {}

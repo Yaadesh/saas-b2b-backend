@@ -11,6 +11,7 @@ interface IntegrationWithOrgData {
   created_at: Date;
   updated_at: Date;
   meta_data: any;
+  integration_type: number;
   org_integration_status?: number | null;
 }
 
@@ -25,6 +26,7 @@ export class IntegrationRepository {
 
   async findIntegrationsByOrgId(
     orgId: number,
+    integrationType?: number,
   ): Promise<IntegrationWithOrgData[]> {
     const queryBuilder = this.integrationRepository
       .createQueryBuilder('integration')
@@ -41,10 +43,16 @@ export class IntegrationRepository {
         'integration.created_at as created_at',
         'integration.updated_at as updated_at',
         'integration.meta_data as meta_data',
+        'integration.integration_type as integration_type',
         'org_mapping.status as org_integration_status',
       ])
-      .where('integration.is_enabled = :enabled', { enabled: true })
-      .orderBy('integration.created_at', 'ASC');
+      .where('integration.is_enabled = :enabled', { enabled: true });
+
+    if (integrationType) {
+      queryBuilder.andWhere('integration.integration_type = :integrationType', { integrationType });
+    }
+
+    queryBuilder.orderBy('integration.created_at', 'ASC');
 
     return queryBuilder.getRawMany();
   }
@@ -78,6 +86,7 @@ export class IntegrationRepository {
       created_at: integration.created_at,
       updated_at: integration.updated_at,
       meta_data: integration.meta_data,
+      integration_type: integration.integration_type,
       org_integration_status: mapping?.status || null,
     };
   }

@@ -6,8 +6,12 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { SupabaseModule } from './supabase/supabase.module';
 import { IntegrationsModule } from './integrations/integrations.module';
+import { JamfModule } from './jamf/jamf.module';
+import { SimpleMDMModule } from './simplemdm/simplemdm.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { UsersModule } from './users/users.module';
+import { ModulesModule } from './modules/modules.module';
+import { RolesModule } from './roles/roles.module';
 
 @Module({
   imports: [
@@ -29,9 +33,13 @@ import { UsersModule } from './users/users.module';
     }),
     OrganizationsModule,
     UsersModule,
+    RolesModule,
     AuthModule,
     SupabaseModule,
     IntegrationsModule,
+    JamfModule,
+    SimpleMDMModule,
+    ModulesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
