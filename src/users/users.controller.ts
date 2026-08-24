@@ -13,18 +13,9 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import type { AuthenticatedRequest } from '../auth/authenticated-request.interface';
 import { UsersService } from './users.service';
 import { GetUsersResponseDto } from './dto/get-users-response.dto';
-
-interface AuthenticatedRequest extends Request {
-  user: {
-    userId: string;
-    email: string;
-    orgId: number | null;
-    payload: any;
-    user: any;
-  };
-}
 
 @ApiTags('users')
 @Controller('users')

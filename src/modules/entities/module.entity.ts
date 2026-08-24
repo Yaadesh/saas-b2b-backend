@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 
 export interface ConfluenceDocument {
@@ -32,6 +33,7 @@ export class Module {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: number;
 
+  @Index()
   @Column({ type: 'bigint' })
   org_id: number;
 

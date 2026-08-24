@@ -21,6 +21,7 @@ import {
   ApiParam,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import type { AuthenticatedRequest } from '../auth/authenticated-request.interface';
 import { IntegrationsService } from './integrations.service';
 import { GetIntegrationsResponseDto } from './dto/get-integrations-response.dto';
 import { GetIntegrationResponseDto } from './dto/get-integration-response.dto';
@@ -35,16 +36,6 @@ import {
   CallbackResponseDto,
 } from './dto/connect-integration.dto';
 import { IntegrationFactoryService } from './services/integration-factory.service';
-
-interface AuthenticatedRequest extends Request {
-  user: {
-    userId: string;
-    email: string;
-    orgId: number | null;
-    payload: any;
-    user: any;
-  };
-}
 
 @ApiTags('integrations')
 @Controller('integrations')

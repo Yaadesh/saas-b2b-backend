@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { Organization } from '../../organizations/entities/organization.entity';
 
@@ -14,6 +15,7 @@ export class User {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: number;
 
+  @Index()
   @Column({ type: 'bigint' })
   org_id: number;
 

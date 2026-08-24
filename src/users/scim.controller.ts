@@ -20,20 +20,11 @@ import {
 } from '@nestjs/swagger';
 import { CommandBus } from '@nestjs/cqrs';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import type { AuthenticatedRequest } from '../auth/authenticated-request.interface';
 import { CreateUserCommand } from './commands/create-user.command';
 import { ScimUserDto } from './dto/scim-user.dto';
 import { CreateScimUserDto } from './dto/create-scim-user.dto';
 import { ScimServiceProviderConfigDto } from './dto/scim-service-provider-config.dto';
-
-interface AuthenticatedRequest extends Request {
-  user: {
-    userId: string;
-    email: string;
-    orgId: number | null;
-    payload: any;
-    user: any;
-  };
-}
 
 @ApiTags('scim')
 @Controller('scim/v2')

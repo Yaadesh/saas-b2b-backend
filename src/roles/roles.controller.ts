@@ -8,8 +8,6 @@ import {
   Delete,
   UseGuards,
   Request,
-  HttpException,
-  HttpStatus,
 } from '@nestjs/common';
 import { RolesService } from './roles.service';
 import {
@@ -36,15 +34,8 @@ export class RolesController {
 
   @Post()
   async create(@Body() createRoleDto: CreateRoleDto, @Request() req) {
-    try {
-      createRoleDto.org_id = this.getOrgId(req);
-      return await this.rolesService.create(createRoleDto);
-    } catch (error) {
-      if (error.message.includes('already exists in your organization')) {
-        throw new HttpException(error.message, HttpStatus.CONFLICT);
-      }
-      throw new HttpException('Failed to create role', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    createRoleDto.org_id = this.getOrgId(req);
+    return this.rolesService.create(createRoleDto);
   }
 
   @Get()
@@ -64,15 +55,8 @@ export class RolesController {
 
   @Patch(':id')
   async update(@Param('id') id: string, @Body() updateRoleDto: UpdateRoleDto, @Request() req) {
-    try {
-      updateRoleDto.org_id = this.getOrgId(req);
-      return await this.rolesService.update(+id, this.getOrgId(req), updateRoleDto);
-    } catch (error) {
-      if (error.message.includes('already exists in your organization')) {
-        throw new HttpException(error.message, HttpStatus.CONFLICT);
-      }
-      throw new HttpException('Failed to update role', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    updateRoleDto.org_id = this.getOrgId(req);
+    return this.rolesService.update(+id, this.getOrgId(req), updateRoleDto);
   }
 
   @Delete(':id')

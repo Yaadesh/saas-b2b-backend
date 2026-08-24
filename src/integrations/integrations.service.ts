@@ -33,6 +33,14 @@ export class IntegrationsService {
     private readonly dataSource: DataSource,
   ) {}
 
+  private getInternalJwtSecret(): string {
+    const secret = this.configService.get<string>('JWT_SECRET_INTERNAL');
+    if (!secret) {
+      throw new Error('JWT_SECRET_INTERNAL is required');
+    }
+    return secret;
+  }
+
   async findIntegrationsByOrgId(
     orgId: number,
     integrationType?: number,
@@ -81,9 +89,7 @@ export class IntegrationsService {
       if (existingKey && existingKey.data?.header_token) {
         try {
           this.jwtService.verify(existingKey.data.header_token, {
-            secret:
-              this.configService.get<string>('JWT_SECRET_INTERNAL') ||
-              'default-secret',
+            secret: this.getInternalJwtSecret(),
           });
 
           return {
@@ -104,9 +110,7 @@ export class IntegrationsService {
       };
 
       const headerToken = this.jwtService.sign(jwtPayload, {
-        secret:
-          this.configService.get<string>('JWT_SECRET_INTERNAL') ||
-          'default-secret',
+        secret: this.getInternalJwtSecret(),
         expiresIn: HEADER_TOKEN_EXPIRES_IN,
       });
 

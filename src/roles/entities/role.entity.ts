@@ -7,6 +7,8 @@ import {
   ManyToOne,
   OneToMany,
   JoinColumn,
+  Index,
+  Unique,
 } from 'typeorm';
 import { Organization } from '../../organizations/entities/organization.entity';
 import { RoleIntegrationMapping } from './role-integration-mapping.entity';
@@ -14,10 +16,12 @@ import { UserRoleMapping } from './user-role-mapping.entity';
 import { RoleModuleMapping } from './role-module-mapping.entity';
 
 @Entity('roles')
+@Unique('unique_role_title_per_org', ['org_id', 'title'])
 export class Role {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: number;
 
+  @Index()
   @Column({ type: 'bigint' })
   org_id: number;
 

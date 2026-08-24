@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Role } from './entities/role.entity';
@@ -64,44 +64,43 @@ export class RolesService {
       return savedRole;
     } catch (error) {
       if (error.code === '23505' && error.constraint === 'unique_role_title_per_org') {
-        throw new Error(`A role with the title "${createRoleDto.title}" already exists in your organization. Please choose a different title.`);
+        throw new ConflictException(`A role with the title "${createRoleDto.title}" already exists in your organization. Please choose a different title.`);
       }
       throw error;
     }
   }
 
   async findAll(orgId: number): Promise<RoleListItemDto[]> {
-    const roles = await this.roleRepository.find({
-      where: { org_id: orgId },
-      order: { created_at: 'DESC' },
-    });
+    const roles = await this.roleRepository
+      .createQueryBuilder('role')
+      .leftJoinAndSelect(
+        'role.roleIntegrations',
+        'rim',
+        'rim.org_id = :orgId',
+        { orgId },
+      )
+      .leftJoinAndSelect('rim.integration', 'integration')
+      .where('role.org_id = :orgId', { orgId })
+      .orderBy('role.created_at', 'DESC')
+      .getMany();
 
-    const rolesWithIntegrations = await Promise.all(
-      roles.map(async (role) => {
-        const integrationMappings = await this.roleIntegrationRepository
-          .createQueryBuilder('rim')
-          .leftJoinAndSelect('rim.integration', 'integration')
-          .where('rim.role_id = :roleId AND rim.org_id = :orgId', { 
-            roleId: role.id, 
-            orgId 
-          })
-          .getMany();
-
-        return {
-          ...role,
-          integrations: integrationMappings.map(mapping => ({
-            integration_id: mapping.integration_id,
-            integration_name: mapping.integration.name,
-            meta_data: mapping.meta_data,
-            img_url: mapping.integration.meta_data?.img_url,
-            subtext: mapping.integration.meta_data?.subtext,
-            display_name: mapping.integration.meta_data?.display_name,
-          })),
-        };
-      })
-    );
-
-    return rolesWithIntegrations;
+    return roles.map((role) => ({
+      id: role.id,
+      org_id: role.org_id,
+      role_type_id: role.role_type_id,
+      team_name: role.team_name,
+      title: role.title,
+      created_at: role.created_at,
+      updated_at: role.updated_at,
+      integrations: (role.roleIntegrations || []).map(mapping => ({
+        integration_id: mapping.integration_id,
+        integration_name: mapping.integration.name,
+        meta_data: mapping.meta_data,
+        img_url: mapping.integration.meta_data?.img_url,
+        subtext: mapping.integration.meta_data?.subtext,
+        display_name: mapping.integration.meta_data?.display_name,
+      })),
+    }));
   }
 
   async findOne(id: number, orgId: number): Promise<Role | null> {
@@ -116,7 +115,7 @@ export class RolesService {
     });
 
     if (!role) {
-      throw new Error('Role not found');
+      throw new NotFoundException('Role not found');
     }
 
     const integrations = await this.roleIntegrationRepository
@@ -139,7 +138,7 @@ export class RolesService {
     await this.roleRepository.update({ id, org_id: orgId }, updateRoleDto);
     const role = await this.findOne(id, orgId);
     if (!role) {
-      throw new Error('Role not found');
+      throw new NotFoundException('Role not found');
     }
     return role;
   }
@@ -152,7 +151,7 @@ export class RolesService {
       await this.roleRepository.update({ id, org_id: orgId }, roleData);
       const role = await this.findOne(id, orgId);
       if (!role) {
-        throw new Error('Role not found');
+        throw new NotFoundException('Role not found');
       }
 
       // Handle integrations if provided
@@ -201,7 +200,7 @@ export class RolesService {
       return role;
     } catch (error) {
       if (error.code === '23505' && error.constraint === 'unique_role_title_per_org') {
-        throw new Error(`A role with the title "${updateRoleDto.title}" already exists in your organization. Please choose a different title.`);
+        throw new ConflictException(`A role with the title "${updateRoleDto.title}" already exists in your organization. Please choose a different title.`);
       }
       throw error;
     }

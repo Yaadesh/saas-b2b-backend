@@ -9,17 +9,8 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import type { AuthenticatedRequest } from '../auth/authenticated-request.interface';
 import { IntegrationFactoryService } from '../integrations/services/integration-factory.service';
-
-interface AuthenticatedRequest extends Request {
-  user: {
-    userId: string;
-    email: string;
-    orgId: number | null;
-    payload: any;
-    user: any;
-  };
-}
 
 interface JamfConnectDto {
   integrationId: number;
